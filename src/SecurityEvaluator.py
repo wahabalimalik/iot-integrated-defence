@@ -14,6 +14,8 @@ import re
 import math
 from random import shuffle, uniform, expovariate
 import numpy as np
+import harm
+
 
 
 #---------------------------------------------------------------------------------------------------
@@ -210,7 +212,8 @@ def computeSSL_Interval(harm, net, decoy_net, thre_check, cflag, detect_pro, w1,
         if break_flag == True:
             break
     #print("MTTC:", totalTime)
-    return SSL, totalTime, compNodes, decoy_net
+    max_value, cost, return_cost = system_risk(harm, decoy_net)
+    return SSL, totalTime, compNodes, decoy_net, max_value, cost, return_cost
 
 def computeSSL_FixedInterval(harm, net, decoy_net, thre_check, cflag, detect_pro, w1, w2, previous_ssl, compNodes, delay):
     """
@@ -305,7 +308,8 @@ def computeSSL_FixedInterval(harm, net, decoy_net, thre_check, cflag, detect_pro
             break
     #print("MTTC:", totalTime)
     #print("SSL:", SSL)
-    return SSL, totalTime, compNodes, decoy_net
+    max_value, cost, return_cost = system_risk(harm, decoy_net)
+    return SSL, totalTime, compNodes, decoy_net, max_value, cost, return_cost
 
 def computeMTTSF_Baseline(harm, net, attack_net, cflag, detect_pro, compNodes):
     """
@@ -316,7 +320,7 @@ def computeMTTSF_Baseline(harm, net, attack_net, cflag, detect_pro, compNodes):
     #print(totalNo)
     #Calculate the MTTC for each node on the attack path
     harm.model.calcMTTC()
-    shuffle(harm.model.allpath)  
+    #shuffle(harm.model.allpath)
     #harm.model.printPath()
     #print("number of attack paths:", ) 
     
@@ -360,7 +364,7 @@ def computeMTTSF_Interval(harm, net, decoy_net, interval_check, cflag, detect_pr
     #print(totalNo)
     #Calculate the MTTC for each node on the attack path
     harm.model.calcMTTC()
-    shuffle(harm.model.allpath)  
+    # shuffle(harm.model.allpath)
     #harm.model.printPath()
     #print("number of attack paths:", ) 
     
@@ -409,15 +413,19 @@ def computeMTTSF_Interval(harm, net, decoy_net, interval_check, cflag, detect_pr
                             modifyCompNodeInNet(decoy_net, node, interval_left)
                         totalTime = interval_check
                         break_flag = True
+                        security_failure = True
                         break
                     
         #Exit outer loop
         if break_flag == True:
             break
-    attack_cost = system_risk(decoy_net)
-    return totalTime, compNodes, decoy_net, security_failure, attack_cost
+    max_value, cost, return_cost = system_risk(harm, decoy_net)
+    op_cost = operational_cost(decoy_net)
+    return totalTime, compNodes, decoy_net, security_failure, max_value, cost, return_cost, op_cost
 
-def computeMTTSF_RandomInterval(harm, net, decoy_net, interval_mean, cflag, detect_pro, compNodes, security_failure):
+
+def computeMTTSF_RandomInterval(harm: object, net: object, decoy_net: object, interval_mean: object, cflag: object, detect_pro: object, compNodes: object,
+                                security_failure: object) -> object:
     """
     Compute system security level for random interval shuffling.
     """
@@ -426,11 +434,19 @@ def computeMTTSF_RandomInterval(harm, net, decoy_net, interval_mean, cflag, dete
     #print(totalNo)
     #Calculate the MTTC for each node on the attack path
     harm.model.calcMTTC()
-    shuffle(harm.model.allpath)  
+   # shuffle(harm.model.allpath)#Attacker randomly picks one entry point at a time
+
+
+    # Get all the entry points
+    all_entry_points = harm.model.allpath
+
+    # Randomly select an entry point
+    random_entry_point = random.choice(all_entry_points)
+
     #harm.model.printPath()
-    #print("number of attack paths:", ) 
-    
-    
+    #print("number of attack paths:", )
+
+
     totalTime = 0
     previousTotalTime = 0
     
@@ -442,7 +458,7 @@ def computeMTTSF_RandomInterval(harm, net, decoy_net, interval_mean, cflag, dete
         for node in path:
             if node is not harm.model.s and node is not harm.model.e:
                 if node.val > 0 and node.comp == False:
-                    MTTC, flag = computeCompNodes(node, detect_pro) 
+                    MTTC, flag = computeCompNodes(node, detect_pro)
                     totalTime += MTTC
                     
                     previousTotalTime = totalTime - MTTC
@@ -481,34 +497,191 @@ def computeMTTSF_RandomInterval(harm, net, decoy_net, interval_mean, cflag, dete
         #Exit outer loop
         if break_flag == True:
             break
-       
-    return totalTime, compNodes, decoy_net, security_failure
+    max_value, cost, return_cost = system_risk(harm,decoy_net)
+    op_cost = operational_cost(decoy_net)
+    return totalTime, compNodes, decoy_net, security_failure, max_value, cost, return_cost, op_cost
+
+#=================================================================================================
+# Calculate System Risk
+#=================================================================================================
+
+# def system_risk(net):
+#     max_value = 0
+#     cost = 0
+#     return_cost = 0
+#
+#     for node in net.nodes:
+#         value, path_cost, path_return_cost = connect_path(0, 0, 0, node)
+#         if value > max_value:
+#             max_value = value
+#         cost += path_cost
+#         return_cost += path_return_cost
+#     return max_value, cost, path_return_cost
+#
+#
+# def connect_path(total_risk, cost, return_cost, node):
+#     if node.con:
+#         for con_node in node.con:
+#             if con_node.con:
+#                 node_risk, node_cost, path_return_cost = connect_path(total_risk, cost, return_cost, con_node)
+#                 total_risk += node_risk
+#                 cost += node_cost
+#                 return_cost += path_return_cost
+#             else:
+#                 total_risk += calculate_node(total_risk, con_node)
+#                 node_cost, node_return_cost = calculate_cost(cost, return_cost, con_node)
+#                 cost += node_cost
+#                 return_cost += node_return_cost
+#
+#     total_risk += calculate_node(total_risk, node)
+#     node_cost, node_return_cost = calculate_cost(cost, return_cost, node)
+#     cost += node_cost
+#     return_cost += node_return_cost
+#
+#     return total_risk, cost, return_cost
+#
+#
+# def calculate_node(total_risk, node):
+#     for vul_node in node.vul.nodes:
+#         probability = vul_node.exploitability / 10
+#         impact = vul_node.impact
+#         risk_decoy_node = probability * impact
+#         total_risk += risk_decoy_node
+#     return total_risk
+#
+#
+# def calculate_cost(cost, return_cost, node):
+#     for vul_node in node.vul.nodes:
+#         cost += vul_node.cost
+#         if vul_node.cost:
+#             return_cost += ((vul_node.exploitability / 10) * vul_node.impact) / vul_node.cost
+#     return cost, return_cost
 
 
-def system_risk(net):
-    cost = 0
 
+
+#***************************************************************************************************************
+#With Harm Model
+#****************************************************************************************************************
+
+def operational_cost(net):
+    operational_cost = 0
     for node in net.nodes:
-        path_cost = connect_path(0, node)
-        cost += path_cost
-    return cost
+        rev_cost = 0
+        vul_list = []
+        dup_vul_list = []
+        cost ,vul_list,dup_vul_list = connect_path_op(0,node,vul_list,dup_vul_list)
+        if dup_vul_list:
+            group_list = group_by_value(dup_vul_list)
+            for dup in group_list:
+                rev_cost += dup[0][1] + len(dup) * 0.5
+                cost -= dup[0][1]
+            cost = cost - rev_cost
+        operational_cost += cost
+    return operational_cost
 
 
-def connect_path(cost, node):
+def group_by_value(list):
+    result = {}
+    for tup in list:
+        key = tup[0]
+        if key in result:
+            result[key].append(tup)
+        else:
+            result[key] = [tup]
+
+    final_result = [v for v in result.values()]
+    return final_result
+
+
+def connect_path_op(operational_cost, node, vul_list,dup_vul_list) :
     if node.con:
         for con_node in node.con:
             if con_node.con:
-                node_cost = connect_path(cost, con_node)
-                cost += node_cost
+                amount, _, __ = connect_path_op(operational_cost, con_node, vul_list,dup_vul_list)
+                operational_cost += amount
             else:
-                node_cost = calculate_cost(cost, con_node)
+                for vul_node in con_node.vul.nodes:
+                    if vul_node.name not in vul_list:
+                        operational_cost += vul_node.cost
+                        vul_list.append(vul_node.name)
+                    else:
+                        operational_cost += 0.5
+                        dup_vul_list.append((vul_node.name, vul_node.cost))
+
+
+    for vul_node in node.vul.nodes:
+        if vul_node.name not in vul_list:
+            operational_cost += vul_node.cost
+            vul_list.append(vul_node.name)
+        else:
+            operational_cost += 0.5
+            dup_vul_list.append((vul_node.name, vul_node.cost))
+    return operational_cost, vul_list,dup_vul_list
+
+def system_risk(harm: object, net: object) -> object:
+    max_value = 0
+    cost = 0
+    return_cost = 0
+    harm.model.calcRisk()
+    # Get all the entry points
+    all_entry_points = harm.model.allpath
+
+    # Randomly select an entry point
+    random_entry_point = random.choice(all_entry_points)
+
+    for path in random_entry_point:
+        for node in net.nodes:
+            total_risk, path_cost, path_return_cost = connect_path(0, 0, 0, node)
+            if total_risk > max_value:
+                max_value = total_risk
+            cost += path_cost
+            return_cost += path_return_cost
+    return max_value, cost, path_return_cost
+
+
+def connect_path(total_risk, cost, return_cost, node):
+    if node.con:
+        for con_node in node.con:
+            update_node(con_node)
+            if con_node.con:
+                node_risk, node_cost, path_return_cost = connect_path(total_risk, cost, return_cost, con_node)
+                total_risk += node_risk
                 cost += node_cost
-    node_cost = calculate_cost(cost, node)
+                return_cost += path_return_cost
+            else:
+                total_risk += calculate_node(con_node)
+                node_cost, node_return_cost = calculate_cost(con_node)
+                cost += node_cost
+                return_cost += node_return_cost
+
+
+
+    total_risk += calculate_node(node)
+    node_cost, node_return_cost = calculate_cost(node)
     cost += node_cost
-    return cost
+    return_cost += node_return_cost
+
+    return total_risk, cost, return_cost
 
 
-def calculate_cost(cost, node):
+def calculate_node(node):
+    total_risk = 0
+    for vul_node in node.vul.nodes:
+        probability = vul_node.exploitability / 10
+        impact = vul_node.impact
+        risk_decoy_node = probability * impact
+        total_risk += risk_decoy_node
+    return total_risk
+
+
+def calculate_cost(node):
+    cost = 0
+    return_cost = 0
     for vul_node in node.vul.nodes:
         cost += vul_node.cost
-    return cost
+        if vul_node.cost:
+            return_cost += ((vul_node.exploitability / 10) * vul_node.impact) / vul_node.cost
+    return cost, return_cost
+
+

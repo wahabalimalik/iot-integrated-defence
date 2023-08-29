@@ -36,6 +36,7 @@ def copyNet(net):
     
     return temp
 
+
 def constructSE(net):
     """
     Set the start and end in the network.
@@ -78,6 +79,7 @@ def connectTwoWays(node1, node2):
         node2.con.append(node1)
     return None
 
+
 def removeNodeFromList(node, con_list):
     """
     Remove node from the original connection list
@@ -87,6 +89,7 @@ def removeNodeFromList(node, con_list):
             con_list.remove(i)
             break
     return None
+
 
 def disconnectOneWay(node1, node2):
     """
@@ -98,6 +101,7 @@ def disconnectOneWay(node1, node2):
         removeNodeFromList(node2, node1.con)
     return None
 
+
 def disconnectTwoWays(node1, node2):
     """
     Disconnect node1 and node2 in the network.
@@ -107,6 +111,7 @@ def disconnectTwoWays(node1, node2):
     if node1 in node2.con:
         node2.con.remove(node1)  
     return None
+
 
 def printNet(net):
     """
@@ -138,6 +143,7 @@ def printNetWithVul(net):
         print("------------------------------")
 
     return None
+
 
 def computeNeighbors(net):
     """

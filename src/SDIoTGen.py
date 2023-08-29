@@ -13,6 +13,8 @@ from time import time
 import ProblemFormulation as pf
 from Metrics import *
 from itertools import accumulate
+import random
+from collections import OrderedDict
 
 #=================================================================================================
 # Create real network 
@@ -52,34 +54,34 @@ def add_vul(net):
             #https://nvd.nist.gov/vuln/detail/CVE-2018-8308
             #Exploitability score: 6.8
             vul = vulNode("CVE-2018-8308")
-            vul.createVul(node, 0.006, 1, 3.4)
+            vul.createVul(node, 0.006, 1, 3.4, 6.6, 5.9, 0.7)
         elif 'thermostat' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2013-4860
             vul = vulNode("CVE-2013-4860")
-            vul.createVul(node, 0.006, 1, 1.7)
+            vul.createVul(node, 0.006, 1)
         elif 'meter' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2017-9944
             #Exploitability score: 10.0
             vul = vulNode("CVE-2017-9944")
-            vul.createVul(node, 0.042, 1, 0.2)
+            vul.createVul(node, 0.042, 1)     
         elif 'camera' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2018-10660
             vul = vulNode("CVE-2018-10660")
-            vul.createVul(node, 0.042, 1, 0.2)
+            vul.createVul(node, 0.042, 1)
         elif 'tv' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2018-4094
             #Exploitability score: 8.6
             vul = vulNode("CVE-2018-4094")
-            vul.createVul(node, 0.012, 1, 2.2)
+            vul.createVul(node, 0.012, 1)
         elif 'laptop' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2018-8345
             #Exploitability score: 4.9
             vul = vulNode("CVE-2018-8345")
-            vul.createVul(node, 0.004, 1, 2.5)
+            vul.createVul(node, 0.004, 1, )     
         elif 'server' in node.name:
             #https://nvd.nist.gov/vuln/detail/CVE-2018-8273
             vul = vulNode("CVE-2018-8273")
-            vul.createVul(node, 0.006, 1, 0.2)
+            vul.createVul(node, 0.006, 1)                  
 
     return None
 
@@ -218,7 +220,8 @@ def createRealSDIoTScale2(node_vlan_list, scale):
 
 
 def add_solution_set(solution_set):
-    return solution_set['ct'], solution_set['camera'], solution_set['tv'], solution_set['server']
+    return solution_set['mri'], solution_set['ct'], solution_set['thermostat'], solution_set['meter'], \
+        solution_set['camera'], solution_set['tv'], solution_set['laptop'], solution_set['server']
 
 def getIoTNum(net):
     num = 0
@@ -257,6 +260,7 @@ def constructHARM(net):
     
     #printNet(net)
     h.constructHarm(net, "attackgraph", 1, "attacktree", 1, 1)
+    h.system_risk = system_risk(net)
     #h.model.printAG()
     #h.model.printPath()
     #print("number of attack paths:", len(h.model.allpath))
@@ -264,56 +268,739 @@ def constructHARM(net):
     return h
 
 #=================================================================================================
+# Calculate System Risk
+#=================================================================================================
+
+def system_risk(net):
+    total_risk = 0
+
+    for node in net.nodes:
+        if "decoy" in node.name:
+            vul = node.vul.nodes
+            for v in vul:
+                probability = v.exploitability / 10
+                impact = v.impact
+                risk_decoy_node = probability * impact
+                total_risk += risk_decoy_node
+
+    return total_risk
+
+#=================================================================================================
 # Add initial deployment of decoys into network
 #=================================================================================================
+
+
+def get_vul_for_ct_n_mri():
+    vul_list = [
+        {
+            "vendor": "ABC",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2018-8308",
+                    "cve_bs": 6.6,
+                    "impact": 4.9,
+                    "exploitability": 0.7,
+                    "cost": 3.4
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2017-8495",
+                    "cve_bs": 7.8,
+                    "impact": 5.9,
+                    "exploitability": 1.8,
+                    "cost": 2.2
+                }
+            ]
+        },
+        {
+            "vendor": "XYZ",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2016-7034",
+                    "cve_bs": 6.8,
+                    "impact": 6.4,
+                    "exploitability": 0.86,
+                    "cost": 3.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2017-4278",
+                    "cve_bs": 5.0,
+                    "impact": 2.9,
+                    "exploitability": 1,
+                    "cost": 5.0
+                }
+            ]
+        },
+        {
+            "vendor": "EXP",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2019-14905",
+                    "cve_bs": 5.6,
+                    "impact": 4.7,
+                    "exploitability": 0.8,
+                    "cost": 4.4
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2019-14910",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        }
+    ]
+    return random.choice(vul_list)
+
+
+def get_vul_for_thermostat_meter_n_camera():
+    vul_list = [
+        {
+            "vendor": "ABC",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2018-6294",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2018-6295",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v2",
+                    "cve_id": "CVE-2018-6297",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        },
+        {
+            "vendor": "XYZ",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2018-6294",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2018-6295",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v2",
+                    "cve_id": "CVE-2018-6297",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        },
+        {
+            "vendor": "EXP",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2018-6294",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2018-6295",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                },
+                {
+                    "version": "v2",
+                    "cve_id": "CVE-2018-6297",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        }
+    ]
+    return random.choice(vul_list)
+
+
+def get_random_os_vul():
+    os_vul_list = [
+        {
+            "os": "W10",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2017-8530",
+                    "cve_bs": 5.8,
+                    "impact": 4.9,
+                    "exploitability": 0.86,
+                    "cost": 4.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2017-8495",
+                    "cve_bs": 6.0,
+                    "impact": 6.4,
+                    "exploitability": 0.68,
+                    "cost": 4.0
+                }
+            ]
+        },
+        {
+            "os": "Linux",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2016-7034",
+                    "cve_bs": 6.8,
+                    "impact": 6.4,
+                    "exploitability": 0.86,
+                    "cost": 3.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2017-4278",
+                    "cve_bs": 5.0,
+                    "impact": 2.9,
+                    "exploitability": 1,
+                    "cost": 5.0
+                }
+            ]
+        },
+        {
+            "os": "RedHat",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2019-14905",
+                    "cve_bs": 5.6,
+                    "impact": 4.7,
+                    "exploitability": 0.8,
+                    "cost": 4.4
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2019-14910",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        }
+    ]
+    return random.choice(os_vul_list)
+
+
+def get_random_vendor_vul():
+    vendor_vul_list = [
+        {
+            "vendor": "TCL Technology",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2020-27403",
+                    "cve_bs": 6.5,
+                    "impact": 3.6,
+                    "exploitability": 2.8,
+                    "cost": 3.5
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2020-28055",
+                    "cve_bs": 7.8,
+                    "impact": 5.9,
+                    "exploitability": 1.8,
+                    "cost": 2.2
+                }
+            ]
+        },
+        {
+            "vendor": "Apple",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2018-4094",
+                    "cve_bs": 7.8,
+                    "impact": 5.9,
+                    "exploitability": 1.8,
+                    "cost": 2.2
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2018-4095",
+                    "cve_bs": 7.8,
+                    "impact": 5.9,
+                    "exploitability": 1.8,
+                    "cost": 2.2
+                }
+            ]
+        },
+        {
+            "vendor": "Samsung",
+            "detail": [
+                {
+                    "version": "v0",
+                    "cve_id": "CVE-2022-44636",
+                    "cve_bs": 4.6,
+                    "impact": 2.5,
+                    "exploitability": 2.1,
+                    "cost": 5.4
+                },
+                {
+                    "version": "v1",
+                    "cve_id": "CVE-2015-5729",
+                    "cve_bs": 9.8,
+                    "impact": 5.9,
+                    "exploitability": 3.9,
+                    "cost": 0.2
+                }
+            ]
+        }
+    ]
+    return random.choice(vendor_vul_list)
+
+
+def update_decoy_vul(net, diversity_percentage,node_list=[]):
+    """
+    Add vulnerabilities for decoy devices.
+    """
+    number_of_nodes = round((diversity_percentage /100)*len(net.nodes))
+    node_qulified = random.choices(net.nodes, k=number_of_nodes)
+    if node_list:
+        node_qulified = node_list
+    for node in net.nodes:
+        if node in node_qulified:
+            update_node(node)
+
+
+    return None
+
+
+def update_node(node):
+    if 'ct' in node.name or "mri" in node.name:
+        node.vul = None
+        random_vendor_vul = get_vul_for_ct_n_mri()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
+    elif 'thermostat' in node.name:
+        node.vul = None
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
+        vul3.thresholdPri(node, 1)
+        vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
+    elif 'meter' in node.name:
+        node.vul = None
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
+        vul3.thresholdPri(node, 1)
+        vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
+    elif 'camera' in node.name:
+        node.vul = None
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
+        vul3.thresholdPri(node, 1)
+        vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
+    elif 'tv' in node.name:
+        node.vul = None
+        random_vendor_vul = get_random_vendor_vul()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, random_vendor_vul["detail"][0]["cost"], random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"], random_vendor_vul["detail"][0]["exploitability"])
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, random_vendor_vul["detail"][1]["cost"], random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"], random_vendor_vul["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
+    elif 'laptop' in node.name:
+        node.vul = None
+        get_os_list = get_random_os_vul()
+        vul1 = vulNode(get_os_list["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, get_os_list["detail"][0]["cost"], get_os_list["detail"][0]["cve_bs"],
+                       get_os_list["detail"][0]["impact"], get_os_list["detail"][0]["exploitability"])
+        vul2 = vulNode(get_os_list["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, get_os_list["detail"][1]["cost"], get_os_list["detail"][1]["cve_bs"],
+                       get_os_list["detail"][1]["impact"], get_os_list["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
+    elif 'server' in node.name:
+        node.vul = None
+        get_os_list = get_random_os_vul()
+        vul1 = vulNode(get_os_list["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, get_os_list["detail"][0]["cost"], get_os_list["detail"][0]["cve_bs"],
+                       get_os_list["detail"][0]["impact"], get_os_list["detail"][0]["exploitability"])
+        vul2 = vulNode(get_os_list["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, get_os_list["detail"][1]["cost"], get_os_list["detail"][1]["cve_bs"],
+                       get_os_list["detail"][1]["impact"], get_os_list["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
+
 
 def add_decoy_vul(node):
     """
     Add vulnerabilities for decoy devices.
     """
 
-    if 'ct' in node.name:
-        vul1 = vulNode("CVE-2018-8308")
-        vul1.createVul(node, 0.006, 1, 0.7)
-        #https://nvd.nist.gov/vuln/detail/CVE-2018-8136
-        #Score: 8.6
-        vul2 = vulNode("CVE-2018-8136")
-        vul2.createVul(node, 0.012, 1, 2.2)
-        
+    if 'ct' in node.name or "mri" in node.name:
+        random_vendor_vul = get_vul_for_ct_n_mri()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
         vul2.thresholdPri(node, 1)
         vul2.terminalPri(node, 1)
+    elif 'thermostat' in node.name:
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
+        vul3.thresholdPri(node, 1)
+        vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
+    elif 'meter' in node.name:
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
+        vul3.thresholdPri(node, 1)
+        vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
     elif 'camera' in node.name:
-        #https://nvd.nist.gov/vuln/detail/CVE-2018-6294
-        #Score: 10.0
-        vul1 = vulNode("CVE-2018-6294")
-        vul1.createVul(node, 0.042, 1, 0.2)
-        vul2 = vulNode("CVE-2018-6295")
-        vul2.createVul(node, 0.042, 1, 0.2)
-        vul3 = vulNode("CVE-2018-6297")
-        vul3.createVul(node, 0.042, 1, 0.2)
-        
+        random_vendor_vul = get_vul_for_thermostat_meter_n_camera()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node,
+                       0.042,
+                       1,
+                       random_vendor_vul["detail"][0]["cost"],
+                       random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"],
+                       random_vendor_vul["detail"][0]["exploitability"])
+
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul2.createVul(node,
+                       0.012,
+                       1,
+                       random_vendor_vul["detail"][1]["cost"],
+                       random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"],
+                       random_vendor_vul["detail"][1]["exploitability"])
+
+        vul3 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+
+        vul3.createVul(node,
+                       0.006,
+                       1,
+                       random_vendor_vul["detail"][2]["cost"],
+                       random_vendor_vul["detail"][2]["cve_bs"],
+                       random_vendor_vul["detail"][2]["impact"],
+                       random_vendor_vul["detail"][2]["exploitability"])
+
         vul3.thresholdPri(node, 1)
         vul3.terminalPri(node, 1)
+
+        # node.vul = None
+        # # https://nvd.nist.gov/vuln/detail/CVE-2018-6294
+        # # Score: 10.0
+        # vul1 = vulNode("CVE-2018-6294")
+        # vul1.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul2 = vulNode("CVE-2018-6295")
+        # vul2.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        # vul3 = vulNode("CVE-2018-6297")
+        # vul3.createVul(node, 0.042, 1, 0.2, 9.8, 5.9, 3.9)
+        #
+        # vul3.thresholdPri(node, 1)
+        # vul3.terminalPri(node, 1)
     elif 'tv' in node.name:
-        vul1 = vulNode("CVE-2018-4094")
-        vul1.createVul(node, 0.012, 1, 2.2)
-        vul2 = vulNode("CVE-2018-4095")
-        vul2.createVul(node, 0.012, 1, 2.2)
-        
+        random_vendor_vul = get_random_vendor_vul()
+        vul1 = vulNode(random_vendor_vul["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, random_vendor_vul["detail"][0]["cost"], random_vendor_vul["detail"][0]["cve_bs"],
+                       random_vendor_vul["detail"][0]["impact"], random_vendor_vul["detail"][0]["exploitability"])
+        vul2 = vulNode(random_vendor_vul["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, random_vendor_vul["detail"][1]["cost"], random_vendor_vul["detail"][1]["cve_bs"],
+                       random_vendor_vul["detail"][1]["impact"], random_vendor_vul["detail"][1]["exploitability"])
         vul2.thresholdPri(node, 1)
-        vul2.terminalPri(node, 1)   
+        vul2.terminalPri(node, 1)
+    elif 'laptop' in node.name:
+        get_os_list = get_random_os_vul()
+        vul1 = vulNode(get_os_list["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, get_os_list["detail"][0]["cost"], get_os_list["detail"][0]["cve_bs"],
+                       get_os_list["detail"][0]["impact"], get_os_list["detail"][0]["exploitability"])
+        vul2 = vulNode(get_os_list["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, get_os_list["detail"][1]["cost"], get_os_list["detail"][1]["cve_bs"],
+                       get_os_list["detail"][1]["impact"], get_os_list["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
     elif 'server' in node.name:
-        #https://nvd.nist.gov/vuln/detail/CVE-2016-1930
-        #Score: 10.0
-        vul1 = vulNode("CVE-2016-1930")
-        vul1.createVul(node, 0.042, 1, 0.2)
-        vul2 = vulNode("CVE-2016-1935")
-        vul2.createVul(node, 0.012, 1, 1.2)
-        vul3 = vulNode("CVE-2016-1962")
-        vul3.createVul(node, 0.042, 1, 0.2)
-        
-        vul3.thresholdPri(node, 1)
-        vul3.terminalPri(node, 1)
+        get_os_list = get_random_os_vul()
+        vul1 = vulNode(get_os_list["detail"][0]["cve_id"])
+        vul1.createVul(node, 0.042, 1, get_os_list["detail"][0]["cost"], get_os_list["detail"][0]["cve_bs"],
+                       get_os_list["detail"][0]["impact"], get_os_list["detail"][0]["exploitability"])
+        vul2 = vulNode(get_os_list["detail"][1]["cve_id"])
+        vul2.createVul(node, 0.012, 1, get_os_list["detail"][1]["cost"], get_os_list["detail"][1]["cve_bs"],
+                       get_os_list["detail"][1]["impact"], get_os_list["detail"][1]["exploitability"])
+        vul2.thresholdPri(node, 1)
+        vul2.terminalPri(node, 1)
         
     return None
 
@@ -348,8 +1035,77 @@ def add_decoy_conn(net):
         if "decoy" in node.name and "server" not in node.name:
             for conNode in temp:
                 connectOneWay(node, conNode)
+
+    # decoyNode = net.nodes[8:-1]
+    # # decoyNode = net.nodes[:]
+    # black_list = []
+    # for node in net.nodes:
+    #     if "decoy" in node.name and "server" not in node.name:
+    #         for conNode in decoyNode:
+    #             if node.name != conNode.name and conNode.name not in black_list:
+    #                 connectOneWay(node, conNode)
+    #         black_list.append(node.name)
             
     return None
+
+
+def closest_connections(net):
+    all_closeness = {}
+    for node in net.nodes:
+        steps = OrderedDict()
+        steps = check_path(node, steps)
+        if steps:
+            visited = []
+            distance=[]
+            keys = [x for x in  steps]
+            iter = 1
+            for key in keys:
+                any = False
+                for x in steps[key]:
+                    if x not in visited:
+                        any = True
+                        distance.append((node.name, x, iter))
+                        visited.append(x)
+                if any:
+                    iter +=1
+            distance = sum([dis[2] for dis in distance])
+            closeness = (len(net.nodes) - 1) * 1 / distance
+            all_closeness[node] = closeness
+    all_closeness
+    top_indice = sorted(all_closeness.items(), key=lambda x:x[1])[-5:]
+    return [i[0] for i in top_indice]
+
+
+
+
+def check_path(node, steps):
+    if node.con:
+        steps[node.name] = OrderedDict()
+        for con_node in node.con:
+            steps[node.name][con_node.name] = 1
+        for con_node in node.con:
+            if con_node.con:
+                steps = check_path(con_node, steps)
+
+    # steps = OrderedDict({
+    #     'thermostat': {
+    #         'tv': 1,
+    #         'laptop': 1
+    #     },
+    #     'tv': {
+    #         'serverd': 1,
+    #         'laptop': 1,
+    #     },
+    #     'laptop': {
+    #         'serverd': 1
+    #     },
+    #     'serverd': {
+    #         'server': 1
+    #     }
+    # })
+
+    return steps
+
 
 def add_decoy_deployment(net, info):
     

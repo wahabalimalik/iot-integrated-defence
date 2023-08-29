@@ -14,6 +14,7 @@ import re
 import numpy as np
 import matplotlib.ticker as plticker
 from jsonschema._validators import pattern
+from pathlib import Path
 
 
 scheme = ['fixed', 'random', 'adap', 'hybrid']
@@ -107,6 +108,8 @@ def processResult(sim, input_path):
 
     for name in scheme:
         print("random shuffling " + name)
+
+        Path(input_path+'comparison/{}_{}.txt'.format(name, 'rs')).touch(exist_ok=True)
         
         with open(input_path+'comparison/{}_{}.txt'.format(name, 'rs'), 'r') as file:
             ap = 0.0
@@ -139,7 +142,7 @@ def processResult(sim, input_path):
     
     for name in scheme:
         print("Heuristic shuffling " + name)
-        
+        Path(input_path + 'comparison/{}_{}.txt'.format(name, 'heu')).touch(exist_ok=True)
         with open(input_path+'comparison/{}_{}.txt'.format(name, 'heu'), 'r') as file:
             ap = 0.0
             mttsf = 0.0
@@ -170,7 +173,7 @@ def processResult(sim, input_path):
 
     for name in scheme:
         print("GA shuffling " + name)
-        
+        Path(input_path + 'comparison/{}_{}.txt'.format(name, 'ga')).touch(exist_ok=True)
         with open(input_path+'comparison/{}_{}.txt'.format(name, 'ga'), 'r') as file:
             ap = 0.0
             mttsf = 0.0

@@ -69,7 +69,6 @@ class ag(network):
                     gn = gVulNode('ag_' + str(u.name))
                     gn.privilege = u.privilege
                     gn.val = u.val
-                    gn.vul = u.vul
                 #For node
                 else:
                     gn = gnode('ag_' + str(u.name))
@@ -79,7 +78,7 @@ class ag(network):
                         gn.val = -1
                     else:
                         gn.val = val
-
+                        
                     if u is not network.s and u is not network.e:
                         gn.type = u.type
                         gn.pro = u.pro
@@ -107,7 +106,13 @@ class ag(network):
                 #For upper layer
                 if len(arg) is 0:
                     for t in self.nodes:
-                        if t.n.name == v.name:
+                        try:
+                            t_name = t.n.name
+                            v_name = v.name
+                        except:
+                            t_name = t.n.name
+                            v_name = v
+                        if t_name == v_name:
                             #print("connections:", t.name)
                             u.con.append(t)
                 #For lower layer

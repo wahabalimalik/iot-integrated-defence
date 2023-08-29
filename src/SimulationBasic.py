@@ -16,6 +16,9 @@ from SecurityEvaluator import *
 from RandomShufflingOptimization import *
 from SystemAvailability import *
 from HeuristicAlgo import *
+from datetime import datetime
+import matplotlib
+import matplotlib.pyplot as plt
 
 
 #-----------------------------------------------------------------------------
@@ -23,19 +26,31 @@ from HeuristicAlgo import *
 #-----------------------------------------------------------------------------
 
 def parse_solution_set(net, solution_set, intelligence, sslThreshold, sslDecrease):
-    
-    ct_num, camera_num, tv_num, server_num = add_solution_set(solution_set)
+
+    # ct_num, camera_num, tv_num, server_num = add_solution_set(solution_set)
+    mri_num, ct_num, thermostat_num, meter_num, camera_num, \
+        tv_num, laptop_num, server_num = add_solution_set(solution_set)
     iot_num = getIoTNum(net)
-    decoy_iot_num = ct_num + camera_num + tv_num
+    decoy_iot_num = mri_num + ct_num + thermostat_num + meter_num + camera_num + tv_num + laptop_num
     
     #threshold is related to first failure condition (system integrity)
     
-    info = {"diot_dimension": ct_num + camera_num + tv_num, "dserver_dimension": server_num, 
-            "decoy_list": ["decoy_ct", "decoy_camera", "decoy_tv", "decoy_server"], 
-            "decoy_num": [ct_num, camera_num, tv_num, server_num], "attackerIntelligence": intelligence,
-            "threshold": float(1.0/3.0), "server_decoy_type": "real", "riot_num": iot_num, "sslThreshold": sslThreshold, "weights": [0.5, 0.5],
-            "previous_solution": [0] * ((decoy_iot_num + server_num + iot_num - 1) * iot_num), 
-            "sslThreshold_checkInterval": sslDecrease, "detectionPro": 0.95}
+    info = {
+        "diot_dimension": mri_num + ct_num + thermostat_num + meter_num + camera_num + tv_num + laptop_num,
+        "dserver_dimension": server_num,
+        "decoy_list": ["decoy_mri", "decoy_ct", "decoy_thermostat", "decoy_meter", "decoy_camera",
+                       "decoy_tv", "decoy_laptop", "decoy_server"],
+        "decoy_num": [mri_num, ct_num, thermostat_num, meter_num, camera_num, tv_num, laptop_num, server_num],
+        "attackerIntelligence": intelligence,
+        "threshold": float(1.0/3.0),
+        "server_decoy_type": "real",
+        "riot_num": iot_num,
+        "sslThreshold": sslThreshold,
+        "weights": [0.5, 0.5],
+        "previous_solution": [0] * ((decoy_iot_num + server_num + iot_num - 1) * iot_num),
+        "sslThreshold_checkInterval": sslDecrease,
+        "detectionPro": 0.95
+    }
     return info
 
 def saveOutput(file_name, open_mode, metrics, output_path):
@@ -90,16 +105,20 @@ def problemGen(solution_set, node_vlan_list, shuffled_net, previous_solution, in
     """
     Initialize problem.
     """
-    ct_num, camera_num, tv_num, server_num = add_solution_set(solution_set)
-    
-    decoy_iot_num = ct_num + camera_num + tv_num
+    mri_num, ct_num, thermostat_num, meter_num, camera_num, \
+        tv_num, laptop_num, server_num = add_solution_set(solution_set)
+
+    decoy_iot_num = mri_num + ct_num + thermostat_num + meter_num + camera_num + tv_num + laptop_num
     prob_bi = pf.problemBinary(3)
 
     prob_bi.generate_net(node_vlan_list)
     iot_num = getIoTNum(prob_bi.net) #number of real IoT nodes
 
-    prob_bi.info = {"diot_dimension": decoy_iot_num, "dserver_dimension": server_num, "decoy_list": ["decoy_ct", "decoy_camera", "decoy_tv", "decoy_server"], 
-                    "decoy_num": [ct_num, camera_num, tv_num, server_num], "riot_num": iot_num, "attackerIntelligence": intelligence,
+    prob_bi.info = {"diot_dimension": decoy_iot_num, "dserver_dimension": server_num,
+                    "decoy_list": ["decoy_mri", "decoy_ct", "decoy_thermostat", "decoy_meter", "decoy_camera",
+                       "decoy_tv", "decoy_laptop", "decoy_server"],
+                    "decoy_num": [mri_num, ct_num, thermostat_num, meter_num, camera_num, tv_num, laptop_num, server_num],
+                    "riot_num": iot_num, "attackerIntelligence": intelligence,
                     "threshold": float(1.0/3.0), "server_decoy_type": "real", "parameters": {"size": 100, "generation": 1},
                     "normalized_range": [0.0, 0.0], "previous_solution": previous_solution, "simulation": 100}
 
@@ -363,7 +382,6 @@ def fixIntervalRS(initial_net, decoy_net, initial_info, interval, pro, packet):
     defense_cost = 0.0
     sum_ap = 0.0
     security_failure = False
-    ttl_attack_cost = 0.0
     
     delivery_ratio = 0.0
     dropThresh = packet["drop"]
@@ -371,9 +389,7 @@ def fixIntervalRS(initial_net, decoy_net, initial_info, interval, pro, packet):
     
     while security_failure == False:
         #print("Shuffle time:",  i+1)
-        vv = copyNet(decoy_net)
         shuffled_net, cost = randomShuffling(decoy_net, pro)
-        # shuffled_net = vv
         #print("Shuffled net:")
         #printNetWithVul(shuffled_net)
         newnet = copyNet(shuffled_net)
@@ -383,7 +399,7 @@ def fixIntervalRS(initial_net, decoy_net, initial_info, interval, pro, packet):
         
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
         
-        totalTime, compNodes, comp_decoy_net, security_failure, attack_cost = computeMTTSF_Interval(h, initial_net, shuffled_net, interval,
+        totalTime, compNodes, comp_decoy_net, security_failure = computeMTTSF_Interval(h, initial_net, shuffled_net, interval,
                                                                                   initial_info["threshold"], initial_info["detectionPro"], 
                                                                                   compNodes, security_failure)
         
@@ -396,7 +412,6 @@ def fixIntervalRS(initial_net, decoy_net, initial_info, interval, pro, packet):
         print("MTTSF:", mttsf)
         print("Cost:", cost)
         print("Accumulated delivery ratio:", delivery_ratio)
-        print("Attack Cost:", attack_cost)
         decoy_net = copyNet(comp_decoy_net)
         i += 1
     
@@ -405,12 +420,11 @@ def fixIntervalRS(initial_net, decoy_net, initial_info, interval, pro, packet):
     print("Total cost:",  defense_cost)
     print("Cost per hour:", float(defense_cost/mttsf))
     print("Average delivery ratio:", float(delivery_ratio/i))
-    print("Total Attack Cost:", ttl_attack_cost)
 
     
     return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
 
-def fixIntervalHS(initial_net, decoy_net, initial_info, interval, pro, packet, thre, maxLength):
+def fixIntervalHS(initial_net, decoy_net, initial_info, interval, pro, packet, thre, maxLength, start, diversity, diversity_percentage):
     
     i = 0
     compNodes = []
@@ -418,7 +432,6 @@ def fixIntervalHS(initial_net, decoy_net, initial_info, interval, pro, packet, t
     defense_cost = 0.0
     sum_ap = 0.0
     security_failure = False
-    ttl_attack_cost = 0.0
     
     delivery_ratio = 0.0
     dropThresh = packet["drop"]
@@ -426,37 +439,45 @@ def fixIntervalHS(initial_net, decoy_net, initial_info, interval, pro, packet, t
     
     totalNodes = len(initial_net.nodes)
     out_degree = float(thre * totalNodes)
-    print("Out degree threshold: ", out_degree)
-    decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
+    # print("Out degree threshold: ", out_degree)
+    # decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
     
     while security_failure == False:
+        if diversity == True:
+            update_decoy_vul(decoy_net, diversity_percentage)
+        else:
+            nodes_list = closest_connections(decoy_net)
+            update_decoy_vul(decoy_net, diversity_percentage, nodes_list)
+
         #print("Shuffle time:",  i+1)
-        shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
-        #print("Shuffled net:")
-        #printNetWithVul(shuffled_net)
+        shuffled_net = copyNet(decoy_net)
         newnet = copyNet(shuffled_net)
         newnet = add_attacker(newnet)
-        h = constructHARM(newnet) 
-        totalAP = decoyPath(h)
+        h = constructHARM(newnet)
+
+        # shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
+        #print("Shuffled net:")
+        #printNetWithVul(shuffled_net)
+        # newnet = copyNet(shuffled_net)
+        # newnet = add_attacker(newnet)
+        # h = constructHARM(newnet)
+        totalAP = cost = decoyPath(h)
         
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
-        
-        totalTime, compNodes, comp_decoy_net, security_failure, attack_cost = computeMTTSF_Interval(h, initial_net, shuffled_net, interval,
+
+        totalTime, compNodes, comp_decoy_net, security_failure, system_risk, attack_cost, return_to_attack_cost, operational_cost = computeMTTSF_Interval(h, initial_net, shuffled_net, interval,
                                                                                   initial_info["threshold"], initial_info["detectionPro"], 
                                                                                   compNodes, security_failure)
-        
-        
+
         mttsf += totalTime
         defense_cost += cost
         sum_ap += totalAP
-        ttl_attack_cost += attack_cost
-        print("Shuffle time:", i+1)
-        print("Number of attack paths:", totalAP)
-        print("MTTSF:", mttsf)
-        print("Cost:", cost)
-        print("Accumulated delivery ratio:", delivery_ratio)
-        print("Attack Cost:", attack_cost)
-        decoy_net = copyNet(comp_decoy_net)
+        # print("Shuffle time:", i+1)
+        # print("Number of attack paths:", totalAP)
+        # print("MTTSF:", mttsf)
+        # print("Cost:", cost)
+        # print("Accumulated delivery ratio:", delivery_ratio)
+        # decoy_net = copyNet(comp_decoy_net)
         i += 1
     
     print("Average number of attack paths:", float(sum_ap)/float(i))
@@ -464,10 +485,15 @@ def fixIntervalHS(initial_net, decoy_net, initial_info, interval, pro, packet, t
     print("Total cost:",  defense_cost)
     print("Cost per hour:", float(defense_cost/mttsf))
     print("Average delivery ratio:", float(delivery_ratio/i))
-    print("Total Attack Cost:", ttl_attack_cost)
+    print("System Risk:", float(system_risk))
+    print("Attack Cost:", attack_cost)
+    print("Return On Attack:", return_to_attack_cost)
+    print("Operational Cost:", operational_cost)
+
+
 
     
-    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
+    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i), float(system_risk)
 
 
 #----------------------------------------------------------------------------
@@ -493,17 +519,17 @@ def randomIntervalGA(node_vlan_list, initial_net, decoy_net, decoy_list, initial
         solution, info = runCasePAES(node_vlan_list, decoy_net, previous_solution, solution_set, intelligence)
         total_cost = float(info["riot_num"] * (info["diot_dimension"] + info["dserver_dimension"] + info["riot_num"] - 1))
         cost = float(total_cost - solution.fitness[2])
-        shuffled_net = add_solution_real_decoy(decoy_net, solution.candidate, info, decoy_list)
+        # shuffled_net = add_solution_real_decoy(decoy_net, solution.candidate, info, decoy_list)
         #print("Shuffled net:")
         #printNetWithVul(shuffled_net)
         
-        newnet = copyNet(shuffled_net)
+        newnet = copyNet(decoy_net)
         newnet = add_attacker(newnet)
         h = constructHARM(newnet) 
         totalAP = decoyPath(h)
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
         
-        totalTime, compNodes, comp_decoy_net, security_failure = computeMTTSF_RandomInterval(h, initial_net, shuffled_net, mean, 
+        totalTime, compNodes, comp_decoy_net, security_failure = computeMTTSF_RandomInterval(h, initial_net, newnet, mean,
                                                                                   initial_info["threshold"], initial_info["detectionPro"], 
                                                                                   compNodes, security_failure)
         
@@ -520,11 +546,11 @@ def randomIntervalGA(node_vlan_list, initial_net, decoy_net, decoy_list, initial
         previous_solution = solution.candidate
         i += 1
     
-    #print("Average number of attack paths:", float(sum_ap)/float(i))
-    #print("MTTSF:", mttsf)
-    #print("Total cost:",  defense_cost)
-    #print("Cost per hour:", float(defense_cost/mttsf))
-    #print("Average delivery ratio:", float(delivery_ratio/i))
+    print("Average number of attack paths:", float(sum_ap)/float(i))
+    print("MTTSF:", mttsf)
+    print("Total cost:",  defense_cost)
+    print("Cost per hour:", float(defense_cost/mttsf))
+    print("Average delivery ratio:", float(delivery_ratio/i))
 
     return str(mttsf), str(float(sum_ap)/float(i)), str(float(defense_cost/mttsf)), str(float(delivery_ratio/i))
 
@@ -578,7 +604,7 @@ def randomIntervalRS(initial_net, decoy_net, initial_info, mean, pro, packet):
     
     return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i) 
 
-def randomIntervalHS(initial_net, decoy_net, initial_info, mean, pro, packet, thre, maxLength):
+def randomIntervalHS(initial_net, decoy_net, initial_info, mean, pro, packet, thre, maxLength, start, diversity, diversity_percentage):
     
     i = 0
     compNodes = []
@@ -593,21 +619,29 @@ def randomIntervalHS(initial_net, decoy_net, initial_info, mean, pro, packet, th
 
     totalNodes = len(initial_net.nodes)
     out_degree = float(thre * totalNodes)
-    print("Out degree threshold: ", out_degree)
-    decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
+    # print("Out degree threshold: ", out_degree)
+    # decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
     
     while security_failure == False:
-        #print("Shuffle time:",  i+1)
-        shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
-        #print("Shuffled net:")
-        #printNetWithVul(shuffled_net)
+        if diversity == True:
+            update_decoy_vul(decoy_net, diversity_percentage)
+
+        shuffled_net = copyNet(decoy_net)
         newnet = copyNet(shuffled_net)
         newnet = add_attacker(newnet)
-        h = constructHARM(newnet) 
-        totalAP = decoyPath(h)
+        h = constructHARM(newnet)
+        totalAP = cost = decoyPath(h)
+        #print("Shuffle time:",  i+1)
+        # shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
+        #print("Shuffled net:")
+        #printNetWithVul(shuffled_net)
+        # newnet = copyNet(shuffled_net)
+        # newnet = add_attacker(newnet)
+        # h = constructHARM(newnet)
+        # totalAP = decoyPath(h)
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
-        
-        totalTime, compNodes, comp_decoy_net, security_failure = computeMTTSF_RandomInterval(h, initial_net, shuffled_net, mean, 
+
+        totalTime, compNodes, comp_decoy_net, security_failure, system_risk, attack_cost, return_to_attack_cost = computeMTTSF_RandomInterval(h, initial_net, decoy_net, mean,
                                                                                   initial_info["threshold"], initial_info["detectionPro"], 
                                                                                   compNodes, security_failure)
         
@@ -615,11 +649,11 @@ def randomIntervalHS(initial_net, decoy_net, initial_info, mean, pro, packet, th
         mttsf += totalTime
         defense_cost += cost
         sum_ap += totalAP
-        print("Shuffle time:", i+1)
-        print("Number of attack paths:", totalAP)
-        print("MTTSF:", mttsf)
-        print("Cost:", cost)
-        print("Accumulated delivery ratio:", delivery_ratio)
+        # print("Shuffle time:", i+1)
+        # print("Number of attack paths:", totalAP)
+        # print("MTTSF:", mttsf)
+        # print("Cost:", cost)
+        # print("Accumulated delivery ratio:", delivery_ratio)
         
         decoy_net = copyNet(comp_decoy_net)
         i += 1
@@ -629,8 +663,11 @@ def randomIntervalHS(initial_net, decoy_net, initial_info, mean, pro, packet, th
     print("Total cost:",  defense_cost)
     print("Cost per hour:", float(defense_cost/mttsf))
     print("Average delivery ratio:", float(delivery_ratio/i))
-    
-    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i) 
+    print("System Risk:", float(system_risk))
+    print("Attack Cost:", attack_cost)
+    print("Return On Attack:", return_to_attack_cost)
+
+    return mttsf, float(sum_ap) / float(i), float(defense_cost / mttsf), float(delivery_ratio / i), float(system_risk)
 
 
 #-----------------------------------------------------------------------------
@@ -753,7 +790,7 @@ def adaptiveIntervalRS(initial_net, decoy_net, initial_info, pro, packet):
     
     return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
 
-def adaptiveIntervalHS(initial_net, decoy_net, initial_info, pro, packet, thre, maxLength):
+def adaptiveIntervalHS(initial_net, decoy_net, initial_info, pro, packet, thre, maxLength, start, diversity, diversity_percentage):
 
     previous_ssl = 0
     compNodes = []
@@ -768,23 +805,32 @@ def adaptiveIntervalHS(initial_net, decoy_net, initial_info, pro, packet, thre, 
     
     totalNodes = len(initial_net.nodes)
     out_degree = float(thre * totalNodes)
-    print("Out degree threshold: ", out_degree)
-    decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
+    # print("Out degree threshold: ", out_degree)
+    # decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
     
     #Attacker compromises nodes
     #Shuffle network when SSL check threshold is met 
     #Stop when either SF1 or SF2 or SSL threshold is met
 
     while previous_ssl <= initial_info["sslThreshold"]:
-        shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
-        
+        if diversity == True:
+            update_decoy_vul(decoy_net, diversity_percentage)
+
+        shuffled_net = copyNet(decoy_net)
         newnet = copyNet(shuffled_net)
         newnet = add_attacker(newnet)
-        h = constructHARM(newnet)     
-        totalAP = decoyPath(h)
+        h = constructHARM(newnet)
+        totalAP = cost = decoyPath(h)
+
+        # shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
+        
+        # newnet = copyNet(shuffled_net)
+        # newnet = add_attacker(newnet)
+        # h = constructHARM(newnet)
+        # totalAP = decoyPath(h)
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
         
-        ssl, mttc, compNodes, comp_decoy_net = computeSSL_Interval(h, initial_net, shuffled_net, 
+        ssl, mttc, compNodes, comp_decoy_net, system_risk, attack_cost, return_to_attack_cost = computeSSL_Interval(h, initial_net, shuffled_net,
                                                                    initial_info["sslThreshold_checkInterval"], 
                                                                    initial_info["threshold"],
                                                                    initial_info["detectionPro"], initial_info["weights"][0], 
@@ -798,11 +844,11 @@ def adaptiveIntervalHS(initial_net, decoy_net, initial_info, pro, packet, thre, 
         i += 1          
         defense_cost += cost
         sum_ap += totalAP
-        print("Shuffle time:", i+1)
-        print("Number of attack paths:", totalAP)
-        print("MTTSF:", mttsf)
-        print("Cost:", cost)
-        print("Accumulated delivery ratio:", delivery_ratio)
+        # print("Shuffle time:", i+1)
+        # print("Number of attack paths:", totalAP)
+        # print("MTTSF:", mttsf)
+        # print("Cost:", cost)
+        # print("Accumulated delivery ratio:", delivery_ratio)
         
         decoy_net = copyNet(comp_decoy_net)
         previous_ssl = ssl
@@ -812,8 +858,11 @@ def adaptiveIntervalHS(initial_net, decoy_net, initial_info, pro, packet, thre, 
     print("Total cost:",  defense_cost)
     print("Cost per hour:", float(defense_cost/mttsf))
     print("Average delivery ratio:", float(delivery_ratio/i))
+    print("System Risk:", float(system_risk))
+    print("Attack Cost:", attack_cost)
+    print("Return On Attack:", return_to_attack_cost)
     
-    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
+    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i), float(system_risk)
 
 #-----------------------------------------------------------------------------
 # Hybrid interval
@@ -897,7 +946,7 @@ def hybridIntervalRS(initial_net, decoy_net, initial_info, pro, delay, packet):
     #Stop when either SF1 or SF2 or SSL threshold is met
     
     while previous_ssl <= initial_info["sslThreshold"]:
-        shuffled_net, cost = randomShuffling(decoy_net, pro)
+        shuffled_net, cost = randomShufflingrandomShuffling(decoy_net, pro)
         
         newnet = copyNet(shuffled_net)
         newnet = add_attacker(newnet)
@@ -940,7 +989,7 @@ def hybridIntervalRS(initial_net, decoy_net, initial_info, pro, delay, packet):
     return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
 
 
-def hybridIntervalHS(initial_net, decoy_net, initial_info, pro, delay, packet, thre, maxLength):
+def hybridIntervalHS(initial_net, decoy_net, initial_info, pro, delay, packet, thre, maxLength, start, diversity, diversity_percentage):
 
     previous_ssl = 0
     compNodes = []
@@ -955,22 +1004,32 @@ def hybridIntervalHS(initial_net, decoy_net, initial_info, pro, delay, packet, t
     
     totalNodes = len(initial_net.nodes)
     out_degree = float(thre * totalNodes)
-    print("Out degree threshold: ", out_degree)
-    decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
+    # print("Out degree threshold: ", out_degree)
+    # decoy_net = randomAddReal(decoy_net, pro, out_degree, maxLength-1, totalNodes)
     #Attacker compromises nodes
     #Shuffle network when SSL check threshold is met 
     #Stop when either SF1 or SF2 or SSL threshold is met
     
     while previous_ssl <= initial_info["sslThreshold"]:
-        shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
-        
+        if diversity == True:
+            update_decoy_vul(decoy_net, diversity_percentage)
+
+        shuffled_net = copyNet(decoy_net)
         newnet = copyNet(shuffled_net)
         newnet = add_attacker(newnet)
-        h = constructHARM(newnet)     
-        totalAP = decoyPath(h)
+        h = constructHARM(newnet)
+        totalAP = cost = decoyPath(h)
+
+
+        # shuffled_net, cost = heuristicShuffling(decoy_net, pro, out_degree, maxLength-1)
+        #
+        # newnet = copyNet(shuffled_net)
+        # newnet = add_attacker(newnet)
+        # h = constructHARM(newnet)
+        # totalAP = decoyPath(h)
         delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
         
-        ssl, mttc, compNodes, comp_decoy_net = computeSSL_FixedInterval(h, initial_net, shuffled_net, 
+        ssl, mttc, compNodes, comp_decoy_net, system_risk, attack_cost, return_to_attack_cost = computeSSL_FixedInterval(h, initial_net, shuffled_net,
                                                                    initial_info["sslThreshold_checkInterval"], 
                                                                    initial_info["threshold"],
                                                                    initial_info["detectionPro"], initial_info["weights"][0], 
@@ -985,11 +1044,11 @@ def hybridIntervalHS(initial_net, decoy_net, initial_info, pro, delay, packet, t
         i += 1          
         defense_cost += cost
         sum_ap += totalAP
-        print("Shuffle time:", i+1)
-        print("Number of attack paths:", totalAP)
-        print("MTTSF:", mttsf)
-        print("Cost:", cost)
-        print("Accumulated delivery ratio:", delivery_ratio)
+        # print("Shuffle time:", i+1)
+        # print("Number of attack paths:", totalAP)
+        # print("MTTSF:", mttsf)
+        # print("Cost:", cost)
+        # print("Accumulated delivery ratio:", delivery_ratio)
         
         decoy_net = copyNet(comp_decoy_net)
         previous_ssl = ssl
@@ -999,8 +1058,11 @@ def hybridIntervalHS(initial_net, decoy_net, initial_info, pro, delay, packet, t
     print("Total cost:",  defense_cost)
     print("Cost per hour:", float(defense_cost/mttsf))
     print("Average delivery ratio:", float(delivery_ratio/i))
+    print("System Risk:", float(system_risk))
+    print("Attack Cost:", attack_cost)
+    print("Return On Attack:", return_to_attack_cost)
     
-    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i)
+    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i), float(system_risk)
 
 
 def baselineScheme(initial_net, initial_info, packet):
@@ -1039,3 +1101,161 @@ def baselineScheme(initial_net, initial_info, packet):
     print("Average delivery ratio:", float(ratio/i))
 
     return totalTime, float(ratio/i)
+
+
+#-----------------------------------------------------------------------------
+# Random Diversity
+#-----------------------------------------------------------------------------
+
+def randomDiversityGA(node_vlan_list, initial_net, decoy_net, decoy_list, initial_info, mean, solution_set, intelligence, packet, start):
+    previous_solution = initial_info["previous_solution"]
+    i = 0
+    compNodes = []
+    mttsf = 0.0
+    defense_cost = 0.0
+    sum_ap = 0.0
+    security_failure = False
+
+    delivery_ratio = 0.0
+    dropThresh = packet["drop"]
+    modifyThresh = packet["modify"]
+
+    while security_failure == False:
+        current_time = time()
+        # print(int(current_time - start))
+        if int(current_time - start) >= 5:
+            start = current_time
+            update_decoy_vul(decoy_net)
+        # Calculate optimal topology
+        solution, info = runCasePAES(node_vlan_list, decoy_net, previous_solution, solution_set, intelligence)
+        total_cost = float(
+            info["riot_num"] * (info["diot_dimension"] + info["dserver_dimension"] + info["riot_num"] - 1))
+        cost = float(total_cost - solution.fitness[2])
+
+        newnet = copyNet(decoy_net)
+        newnet = add_attacker(newnet)
+        h = constructHARM(newnet)
+        totalAP = decoyPath(h)
+        system_risk = h.system_risk
+        delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
+
+        totalTime, compNodes, comp_decoy_net, security_failure = computeMTTSF_RandomInterval(h, initial_net, newnet,
+                                                                                             mean,
+                                                                                             initial_info["threshold"],
+                                                                                             initial_info[
+                                                                                                 "detectionPro"],
+                                                                                             compNodes,
+                                                                                             security_failure)
+
+        mttsf += totalTime
+        defense_cost += cost
+        sum_ap += totalAP
+        decoy_net = copyNet(comp_decoy_net)
+        previous_solution = solution.candidate
+        i += 1
+
+    print("Average number of attack paths:", float(sum_ap) / float(i))
+    print("MTTSF:", mttsf)
+    print("Total cost:", defense_cost)
+    print("Cost per hour:", float(defense_cost / mttsf))
+    print("Average delivery ratio:", float(delivery_ratio / i))
+    print("System Risk:", float(system_risk))
+
+    return str(mttsf), str(float(sum_ap) / float(i)), str(float(defense_cost / mttsf)), str(float(delivery_ratio / i)), str(float(system_risk))
+
+
+def randomDiversityRS(initial_net, decoy_net, initial_info, mean, pro, packet, start, diversity, diversity_percentage):
+
+    i = 0
+    compNodes = []
+    mttsf = 0.0
+    defense_cost = 0.0
+    sum_ap = 0.0
+    security_failure = False
+
+    delivery_ratio = 0.0
+    dropThresh = packet["drop"]
+    modifyThresh = packet["modify"]
+
+
+    while security_failure == False:
+        #current_time = time()
+        # print(int(current_time - start))
+        if diversity == True:
+        #     start = current_time
+            update_decoy_vul(decoy_net, diversity_percentage)
+        else:
+            nodes_list = closest_connections(decoy_net)
+            update_decoy_vul(decoy_net, diversity_percentage, nodes_list)
+
+        shuffled_net = copyNet(decoy_net)
+        newnet = copyNet(shuffled_net)
+        newnet = add_attacker(newnet)
+        h = constructHARM(newnet)
+        totalAP = cost = decoyPath(h)
+        # system_risk = h.system_risk
+        delivery_ratio += calcMessageDelivery(h, dropThresh, modifyThresh)
+
+        totalTime, compNodes, comp_decoy_net, security_failure, system_risk, attack_cost, return_to_attack_cost, operational_cost = computeMTTSF_RandomInterval(h, initial_net, shuffled_net, mean,
+                                                                                  initial_info["threshold"], initial_info["detectionPro"],
+                                                                                  compNodes, security_failure)
+
+
+        mttsf += totalTime
+        defense_cost += cost
+        sum_ap += totalAP
+
+
+        # print("Shuffle time:", i+1)
+        # print("Number of attack paths:", totalAP)
+        # print("MTTSF:", mttsf)
+        # print("Cost:", cost)
+        # print("Accumulated delivery ratio:", delivery_ratio)
+        # print("System Risk:", float(system_risk))
+
+        decoy_net = copyNet(comp_decoy_net)
+        i += 1
+
+    print("Average number of attack paths:", float(sum_ap)/float(i))
+    print("MTTSF:", mttsf)
+    print("Total cost:",  defense_cost)
+    print("Cost per hour:", float(defense_cost/mttsf))
+    print("Average delivery ratio:", float(delivery_ratio/i))
+    print("System Risk:", float(system_risk))
+    print("Attack Cost:", attack_cost)
+    print("Return On Attack:", return_to_attack_cost)
+    print("Operational Cost:", operational_cost)
+
+
+    # # Define the values to plot
+    # #attack_paths_avg = float(sum_ap) / float(i)
+    # mttsf = mttsf
+    # #total_cost = defense_cost
+    # #cost_per_hour = float(defense_cost / mttsf)
+    # delivery_ratio_avg = float(delivery_ratio / i)
+    # system_risk = system_risk
+    # attack_cost = attack_cost
+    # return_on_attack = return_to_attack_cost
+    #
+    # # Define the labels for the x axis and the values for the y axis
+    # x_labels = ['MTTSF', 'Delivery Ratio', 'System Risk', 'Attack Cost',
+    #             'Return on Attack']
+    # y_values = [mttsf, delivery_ratio_avg, system_risk, attack_cost,
+    #             return_on_attack]
+    #
+    # # Create a bar chart
+    # fig, ax = plt.subplots()
+    # ax.bar(x_labels, y_values)
+    #
+    #
+    # # Set the labels for the x and y axis
+    # ax.set_xlabel('Metrics')
+    # ax.set_ylabel('Values')
+    #
+    # # Set the title for the plot
+    # ax.set_title('Metrics')
+    #
+    # # Show the plot
+    # plt.show()
+
+    return mttsf, float(sum_ap)/float(i), float(defense_cost/mttsf), float(delivery_ratio/i), float(system_risk)
